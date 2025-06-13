@@ -82,7 +82,7 @@ while all of the information is there, it's not super easy to work with, and cha
 
 however, fibers aren't directly accessible by the user. so, we have to hack our way around to accessing it.
 
-luckily, react [reads from a property](https://github.com/facebook/react/blob/6a4b46cd70d2672bc4be59dcb5b8dede22ed0cef/packages/react-reconciler/src/reactFiberDevToolsHook.js#L48) in the window object: `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` and runs handlers on it when certain events happen. this property must exist before react's bundle is executed. this is intended for react devtools, but we can use it to our advantage.
+luckily, react [reads from a property](https://github.com/facebook/react/blob/6a4b46cd70d2672bc4be59dcb5b8dede22ed0cef/packages/react-reconciler/src/ReactFiberDevToolsHook.js#L48) in the window object: `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` and runs handlers on it when certain events happen. this property must exist before react's bundle is executed. this is intended for react devtools, but we can use it to our advantage.
 
 here's what it roughly looks like:
 
@@ -397,7 +397,7 @@ import { isValidFiber } from 'bippy';
 console.log(isValidFiber(fiber));
 ```
 
-## getFiberFromHostInstance
+### getFiberFromHostInstance
 
 returns the fiber associated with a given host instance (e.g., a DOM element).
 
@@ -408,7 +408,7 @@ const fiber = getFiberFromHostInstance(document.querySelector('div'));
 console.log(fiber);
 ```
 
-## getLatestFiber
+### getLatestFiber
 
 returns the latest fiber (since it may be double-buffered). usually use this in combination with `getFiberFromHostInstance`.
 
@@ -420,6 +420,101 @@ const latestFiber = getLatestFiber(
 );
 console.log(latestFiber);
 ```
+
+### getFiberSource
+
+returns the source code location of a fiber.
+
+```typescript
+import { getFiberSource } from 'bippy/source';
+
+const fiber = getFiberFromHostInstance(document.querySelector('div'));
+
+console.log(await getFiberSource(fiber));
+```
+
+> note: in order to get accurate source locations in react >= 19, you need to add this in your `tsconfig.json`:
+>
+> ```json
+> {
+>   "compilerOptions": {
+>     "jsxImportSource": "bippy/dist"
+>   }
+> }
+> ```
+
+## override apis
+
+> [!WARNING]
+> these are advanced apis for runtime modification of react state. use with extreme caution as they can cause unexpected behavior and should primarily be used for debugging and development tools.
+
+the override apis allow you to modify react component props, hook state, and context values at runtime. these functions work by injecting override methods into react devtools renderers.
+
+```typescript
+import { overrideProps, overrideHookState, overrideContext } from 'bippy/override';
+```
+
+### overrideProps
+
+overrides component props at runtime by modifying the fiber's props.
+
+```typescript
+import { overrideProps } from 'bippy/override';
+
+// override props on a fiber
+overrideProps(fiber, {
+  title: 'new title',
+  config: {
+    enabled: true,
+    count: 42
+  }
+});
+```
+
+the function accepts a fiber and a partial object containing the props to override. nested objects are automatically flattened into property paths.
+
+### overrideHookState
+
+overrides hook state (usestate, usereducer, etc.) at runtime by hook id.
+
+```typescript
+import { overrideHookState } from 'bippy/override';
+
+// override the first hook (id: 0) with a new value
+overrideHookState(fiber, 0, 'new state value');
+
+// override nested state object
+overrideHookState(fiber, 1, {
+  user: {
+    name: 'john',
+    age: 30
+  }
+});
+```
+
+the hook id parameter corresponds to the order of hooks in the component (0-indexed). the function can accept either a primitive value or an object for nested state updates.
+
+### overrideContext
+
+overrides react context values at runtime by finding the appropriate context provider.
+
+```typescript
+import { overrideContext } from 'bippy/override';
+
+// override context value
+overrideContext(fiber, MyContext, {
+  theme: 'dark',
+  user: {
+    id: 123,
+    name: 'jane'
+  }
+});
+
+// override with primitive value
+overrideContext(fiber, ThemeContext, 'dark');
+```
+
+the function traverses up the fiber tree to find the context provider matching the provided context type and overrides its value.
 
 ## examples
 
@@ -639,3 +734,5 @@ while i maintain this specifically for react-scan, those seeking more robust sol
 if you plan to use this project beyond experimentation, please review [react-scan's source code](https://github.com/aidenybai/react-scan) to understand our safeguarding practices.
 
 the original bippy character is owned and created by [@dairyfreerice](https://www.instagram.com/dairyfreerice). this project is not related to the bippy brand, i just think the character is cute.
+
+DEVIN

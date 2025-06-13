@@ -1,6 +1,6 @@
 {
   "name": "bippy",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "description": "hack into react internals",
   "publishConfig": {
     "access": "public"
@@ -58,6 +58,16 @@
       "require": {
         "types": "./dist/source.d.cts",
         "default": "./dist/source.cjs"
+      }
+    },
+    "./override": {
+      "import": {
+        "types": "./dist/override.d.ts",
+        "default": "./dist/override.js"
+      },
+      "require": {
+        "types": "./dist/override.d.cts",
+        "default": "./dist/override.cjs"
       }
     },
     "./jsx-runtime": {
