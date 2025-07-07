@@ -1,6 +1,6 @@
 {
   "name": "bippy",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "description": "hack into react internals",
   "publishConfig": {
     "access": "public"
@@ -60,24 +60,14 @@
         "default": "./dist/source.cjs"
       }
     },
-    "./jsx-runtime": {
+    "./override": {
       "import": {
-        "types": "./dist/jsx-runtime.d.ts",
-        "default": "./dist/jsx-runtime.js"
+        "types": "./dist/override.d.ts",
+        "default": "./dist/override.js"
       },
       "require": {
-        "types": "./dist/jsx-runtime.d.cts",
-        "default": "./dist/jsx-runtime.cjs"
-      }
-    },
-    "./jsx-dev-runtime": {
-      "import": {
-        "types": "./dist/jsx-dev-runtime.d.ts",
-        "default": "./dist/jsx-dev-runtime.js"
-      },
-      "require": {
-        "types": "./dist/jsx-dev-runtime.d.cts",
-        "default": "./dist/jsx-dev-runtime.cjs"
+        "types": "./dist/override.d.cts",
+        "default": "./dist/override.cjs"
       }
     },
     "./experiments/inspect": {

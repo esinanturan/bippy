@@ -18,7 +18,7 @@ by default, you cannot access react internals. bippy bypasses this by "pretendin
 - no prior react source code knowledge required
 
 ```jsx
-import { onCommitFiberRoot, traverseFiber } from 'bippy';
+import { onCommitFiberRoot, traverseFiber } from 'bippy'; // must be imported BEFORE react
 
 onCommitFiberRoot((root) => {
   traverseFiber(root.current, (fiber) => {
@@ -82,7 +82,7 @@ while all of the information is there, it's not super easy to work with, and cha
 
 however, fibers aren't directly accessible by the user. so, we have to hack our way around to accessing it.
 
-luckily, react [reads from a property](https://github.com/facebook/react/blob/6a4b46cd70d2672bc4be59dcb5b8dede22ed0cef/packages/react-reconciler/src/reactFiberDevToolsHook.js#L48) in the window object: `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` and runs handlers on it when certain events happen. this property must exist before react's bundle is executed. this is intended for react devtools, but we can use it to our advantage.
+luckily, react [reads from a property](https://github.com/facebook/react/blob/6a4b46cd70d2672bc4be59dcb5b8dede22ed0cef/packages/react-reconciler/src/ReactFiberDevToolsHook.js#L48) in the window object: `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` and runs handlers on it when certain events happen. this property must exist before react's bundle is executed. this is intended for react devtools, but we can use it to our advantage.
 
 here's what it roughly looks like:
 
@@ -397,7 +397,7 @@ import { isValidFiber } from 'bippy';
 console.log(isValidFiber(fiber));
 ```
 
-## getFiberFromHostInstance
+### getFiberFromHostInstance
 
 returns the fiber associated with a given host instance (e.g., a DOM element).
 
@@ -408,7 +408,7 @@ const fiber = getFiberFromHostInstance(document.querySelector('div'));
 console.log(fiber);
 ```
 
-## getLatestFiber
+### getLatestFiber
 
 returns the latest fiber (since it may be double-buffered). usually use this in combination with `getFiberFromHostInstance`.
 
@@ -421,6 +421,90 @@ const latestFiber = getLatestFiber(
 console.log(latestFiber);
 ```
 
+### getFiberSource
+
+returns the source code location of a fiber.
+
+```typescript
+import { getFiberSource } from 'bippy/source';
+
+const fiber = getFiberFromHostInstance(document.querySelector('div'));
+
+console.log(await getFiberSource(fiber));
+```
+
+> note: in order to get accurate source locations in react >= 19, you need to add this in your `tsconfig.json`:
+>
+> ```json
+> {
+>   "compilerOptions": {
+>     "jsxImportSource": "bippy/dist"
+>   }
+> }
+> ```
+
+### overrideProps
+
+overrides component props at runtime by modifying the fiber's props.
+
+```typescript
+import { overrideProps } from 'bippy/override';
+
+// override props on a fiber
+overrideProps(fiber, {
+  title: 'new title',
+  config: {
+    enabled: true,
+    count: 42
+  }
+});
+```
+
+the function accepts a fiber and a partial object containing the props to override. nested objects are automatically flattened into property paths.
+
+### overrideHookState
+
+overrides hook state (usestate, usereducer, etc.) at runtime by hook id.
+
+```typescript
+import { overrideHookState } from 'bippy/override';
+
+// override the first hook (id: 0) with a new value
+overrideHookState(fiber, 0, 'new state value');
+
+// override nested state object
+overrideHookState(fiber, 1, {
+  user: {
+    name: 'john',
+    age: 30
+  }
+});
+```
+
+the hook id parameter corresponds to the order of hooks in the component (0-indexed). the function can accept either a primitive value or an object for nested state updates.
+
+### overrideContext
+
+overrides react context values at runtime by finding the appropriate context provider.
+
+```typescript
+import { overrideContext } from 'bippy/override';
+
+// override context value
+overrideContext(fiber, MyContext, {
+  theme: 'dark',
+  user: {
+    id: 123,
+    name: 'jane'
+  }
+});
+
+// override with primitive value
+overrideContext(fiber, ThemeContext, 'dark');
+```
+
+the function traverses up the fiber tree to find the context provider matching the provided context type and overrides its value.
+
 ## examples
 
 the best way to understand bippy is to [read the source code](https://github.com/aidenybai/bippy/blob/main/src/core.ts). here are some examples of how you can use it:
@@ -432,7 +516,7 @@ here's a mini toy version of [`react-scan`](https://github.com/aidenybai/react-s
 ```javascript
 import {
   instrument,
-  isHostFiber,
+  secure,
   getNearestHostFiber,
   traverseRenderedFibers,
 } from 'bippy'; // must be imported BEFORE react
@@ -448,7 +532,7 @@ const highlightFiber = (fiber) => {
   highlight.style.left = `${rect.left}px`;
   highlight.style.width = `${rect.width}px`;
   highlight.style.height = `${rect.height}px`;
-  highlight.style.zIndex = 999999999;
+  highlight.style.zIndex = '999999999';
   document.documentElement.appendChild(highlight);
   setTimeout(() => {
     document.documentElement.removeChild(highlight);
@@ -505,10 +589,10 @@ instrument(
 
 here's a mini toy version of [`why-did-you-render`](https://github.com/welldone-software/why-did-you-render) that logs why components re-render.
 
-```typescript
+```javascript
 import {
   instrument,
-  isHostFiber,
+  secure,
   traverseRenderedFibers,
   isCompositeFiber,
   getDisplayName,
@@ -572,11 +656,11 @@ instrument(
          * State don't have a "name" like props, so we use an id to identify them.
          */
         traverseState(fiber, (value, prevValue) => {
-          if (next !== prev) {
+          if (value !== prevValue) {
             changes.push({
               name: `state ${stateId}`,
-              prev,
-              next,
+              prev: prevValue,
+              next: value,
             });
           }
           stateId++;
@@ -632,9 +716,9 @@ pnpm run dev
 
 ## misc
 
-we use this project internally in [react-scan](https://github.com/aidenybai/react-scan), which is deployed with proper safeguards to ensure it's only used in development or error-guarded in production.
+bippy was initially created for [react-scan](https://github.com/aidenybai/react-scan), which is deployed with proper safeguards to ensure it's only used in development or error-guarded in production.
 
-while i maintain this specifically for react-scan, those seeking more robust solutions might consider [its-fine](https://github.com/pmndrs/its-fine) for accessing fibers within react using hooks, or [react-devtools-inline](https://www.npmjs.com/package/react-devtools-inline) for a headful interface.
+if you're seeking more robust solutions, you might consider [its-fine](https://github.com/pmndrs/its-fine) for accessing fibers within react using hooks, or [react-devtools-inline](https://www.npmjs.com/package/react-devtools-inline) for a headful interface.
 
 if you plan to use this project beyond experimentation, please review [react-scan's source code](https://github.com/aidenybai/react-scan) to understand our safeguarding practices.
 
